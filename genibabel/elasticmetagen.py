@@ -155,7 +155,7 @@ class MetaGen(object):
         return MetaGen._format_result(
             self.session.search(index="genes", body=query, request_timeout=500))
 
-    def get_snps(self, chromosome=None, gene=None, pos_low=None, pos_up=None):
+    def get_snps(self, chromosome=None, gene=None, pos_low=None, pos_up=None, panel=None):
         """ Filter/retrieve the available SNPs.
 
         Parameters
@@ -166,6 +166,9 @@ class MetaGen(object):
             a gene name.
         pos_low, pos_up: int, default None
             a position interval to look for SNPs.
+        panel: str, default None
+            an string taking values in ['panel_aims_impute', 
+            'panel_aims_call', 'panel_imagen_impute', etc].
 
         Returns
         -------
@@ -183,6 +186,12 @@ class MetaGen(object):
             conditions.append({
                 "match": {
                     "related_genes": gene
+                }
+            })
+        if panel is not None:
+            conditions.append({
+                "match": {
+                    "panels": panel
                 }
             })
         if pos_low is not None or pos_up is not None:
