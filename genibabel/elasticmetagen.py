@@ -140,7 +140,7 @@ class MetaGen(object):
                 interval["end"] = {"lte": pos_up}
             conditions.append({
                 "range" : {
-                    interval
+                    "pos": interval
                 }
             })
 
