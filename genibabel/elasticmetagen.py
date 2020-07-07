@@ -85,12 +85,14 @@ class MetaGen(object):
         print("=" * 50)
 
 
-    def get_genes(self, chromosome=None, gene=None, pos_low=None, pos_up=None,
-                  pathway=None, cpg=None):
+    def get_genes(self, name=None, chromosome=None, gene=None, pos_low=None,
+                  pos_up=None, pathway=None, cpg=None):
         """ Filter/retrieve the available genes.
 
         Parameters
         ----------
+        name: str, default None
+            the name of the snps entry.
         chromosome: str, default None
             a chromosome name.
         gene: str, default None
@@ -108,6 +110,12 @@ class MetaGen(object):
             the requested SNPs.
         """
         conditions = []
+        if name is not None:
+            conditions.append({
+                "match": {
+                    "_id": name
+                }
+            })
         if chromosome is not None:
             conditions.append({
                 "match": {
@@ -133,16 +141,14 @@ class MetaGen(object):
                 }
             })
         if pos_low is not None or pos_up is not None:
-            interval = {}
             if pos_low is not None:
-                interval["start"] = {"gte": pos_low}
+                conditions.append({
+                    "range" : {"start": {"gte": pos_low}}
+                })
             if pos_up is not None:
-                interval["end"] = {"lte": pos_up}
-            conditions.append({
-                "range" : {
-                    interval
-                }
-            })
+                conditions.append({
+                    "range" : {"end": {"lte": pos_up}}
+                })
 
         query = {
             "size": 10000,
@@ -155,11 +161,14 @@ class MetaGen(object):
         return MetaGen._format_result(
             self.session.search(index="genes", body=query, request_timeout=500))
 
-    def get_snps(self, chromosome=None, gene=None, pos_low=None, pos_up=None):
+    def get_snps(self, name=None, chromosome=None, gene=None, pos_low=None,
+                 pos_up=None):
         """ Filter/retrieve the available SNPs.
 
         Parameters
         ----------
+        name: str, default None
+            the name of the snps entry.
         chromosome: str, default None
             a chromosome name.
         gene: str, default None
@@ -173,6 +182,12 @@ class MetaGen(object):
             the requested SNPs.
         """
         conditions = []
+        if name is not None:
+            conditions.append({
+                "match": {
+                    "_id": name
+                }
+            })
         if chromosome is not None:
             conditions.append({
                 "match": {
@@ -223,7 +238,7 @@ class MetaGen(object):
         cpgs: list of list
             [[cg_id, chromosome, position, related_genes, cpg_island_id], ...]
         snps: list of list
-            [[rs_id, chromsome, start, end, maf, related_genes], ...]
+            [[rs_id, chromsome, start, end, maf, related_genes, panels], ...]
         thread_count: int, default 1
             size of the threadpool to use for the bulk requests.
         """
@@ -240,7 +255,8 @@ class MetaGen(object):
         if not self.bulk:
             bar = progressbar.ProgressBar(
                 max_value=len(snps), redirect_stdout=True)
-        for cnt, (rs_id, chrom, pos, maf, related_genes) in enumerate(snps):
+        for cnt, (rs_id, chrom, pos, maf, related_genes,
+                  panels) in enumerate(snps):
             assert chrom == chromosome_name, rs_id
             chrom = chrom.lower()
             for gene_id in related_genes:
@@ -249,19 +265,20 @@ class MetaGen(object):
                 "chrom": chrom,
                 "pos": pos,
                 "maf": maf,
-                "related_genes": related_genes
+                "related_genes": related_genes,
+                "panels": panels
             }
             if self.bulk:
                 actions.append({
                     "_op_type": "create",
                     "_index": "snps",
-                    "_type": "hg38_dbsnp149",
+                    "_type": "hg38_dbsnp152",
                     "_id": rs_id,
                     "_source": data
                 })
             else:
                 result = self.session.index(
-                    doc_type="hg38_dbsnp149",
+                    doc_type="hg38_dbsnp152",
                     index="snps",
                     id=rs_id,
                     body=data)
@@ -297,13 +314,13 @@ class MetaGen(object):
                 actions.append({
                     "_op_type": "create",
                     "_index": "cpg_islands",
-                    "_type": "hg38_dbsnp149",
+                    "_type": "hg38_dbsnp152",
                     "_id": cpg_island_id,
                     "_source": data
                 })
             else:
                 result = self.session.index(
-                    doc_type="hg38_dbsnp149",
+                    doc_type="hg38_dbsnp152",
                     index="cpg_islands",
                     id=cpg_island_id,
                     body=data)
@@ -339,13 +356,13 @@ class MetaGen(object):
                 actions.append({
                     "_op_type": "create",
                     "_index": "cpgs",
-                    "_type": "hg38_dbsnp149",
+                    "_type": "hg38_dbsnp152",
                     "_id": cg_id,
                     "_source": data
                 })
             else:
                 result = self.session.index(
-                    doc_type="hg38_dbsnp149",
+                    doc_type="hg38_dbsnp152",
                     index="cpgs",
                     id=cg_id,
                     body=data)
@@ -385,13 +402,13 @@ class MetaGen(object):
                 actions.append({
                     "_op_type": "create",
                     "_index": "genes",
-                    "_type": "hg38_dbsnp149",
+                    "_type": "hg38_dbsnp152",
                     "_id": gene_id,
                     "_source": data
                 })
             else:
                 result = self.session.index(
-                    doc_type="hg38_dbsnp149",
+                    doc_type="hg38_dbsnp152",
                     index="genes",
                     id=gene_id,
                     body=data)
@@ -413,13 +430,13 @@ class MetaGen(object):
             actions.append({
                 "_op_type": "create",
                 "_index": "chromosomes",
-                "_type": "hg38_dbsnp149",
+                "_type": "hg38_dbsnp152",
                 "_id": "chr{0}".format(chromosome_name),
                 "_source": data
             })
         else:
             result = self.session.index(
-                doc_type="hg38_dbsnp149",
+                doc_type="hg38_dbsnp152",
                 index="chromosomes",
                 id="chr{0}".format(chromosome_name),
                 body=data)
